@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+training/nlu_train.jsonl
+geoai-slm-merged/
+lora-out/

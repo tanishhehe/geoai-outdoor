@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outdoor assistant: where and when to go</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eaf0f3;--panel:#fff;--ink:#14232b;--mute:#566a75;--line:#d2dde4;--accent:#0b6a8a;--accent-ink:#fff;
+--great:#1b8a57;--good:#6f9f2a;--marginal:#c98a12;--avoid:#bf3f2b;--r:10px}
+@media (prefers-color-scheme:dark){:root{--bg:#0d151a;--panel:#16212a;--ink:#e7eff3;--mute:#9bb0bb;--line:#2a3a46;--accent:#62bddb;--accent-ink:#06222c;
+--great:#3dbb82;--good:#9ac751;--marginal:#e5a93a;--avoid:#e0725e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Atkinson Hyperlegible",system-ui,sans-serif}
+header.top{max-width:1240px;margin:0 auto;padding:20px 16px 4px}
+h1{font-size:1.55rem;line-height:1.2;margin:0}
+h2{font-size:1.5rem;line-height:1.2;margin:2px 0 4px}
+h3{font-size:1rem;margin:0 0 8px}
+.lead{margin:4px 0 0;color:var(--mute);max-width:70ch}
+main{max-width:1240px;margin:0 auto;padding:12px 16px 40px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+label{font-weight:700}
+.hint{color:var(--mute);font-size:.9rem;margin:2px 0 8px}
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:6px 0 14px}
+.act{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:.9rem;cursor:pointer}
+.act:hover{border-color:var(--accent)}.act[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--panel)}
+.act .ic{font-size:1.2rem}
+textarea{width:100%;min-height:84px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;resize:vertical}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 12px;border-radius:8px}
+.btn.go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700;padding:10px 18px}
+.btn[disabled]{opacity:.6;cursor:progress}
+.progress{display:flex;gap:10px;align-items:center;color:var(--mute)}
+.spin{width:16px;height:16px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.verdict{display:grid;grid-template-columns:132px 1fr;gap:20px;align-items:center}
+.ring{--p:0;--c:var(--accent);width:132px;height:132px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),var(--line) 0)}
+.ring>div{width:104px;height:104px;border-radius:50%;background:var(--panel);display:grid;place-items:center;text-align:center;line-height:1.1}
+.ring b{font-size:2rem}.ring span{font-size:.85rem;font-weight:700;color:var(--c)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:1px 10px;font-size:.85rem;color:var(--mute)}
+.ans{margin:6px 0 0;font-size:1.05rem}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+@media (max-width:960px){.grid{grid-template-columns:1fr}.verdict{grid-template-columns:1fr}}
+#map{height:430px;border-radius:8px;border:1px solid var(--line)}
+.maplegend{display:flex;flex-wrap:wrap;gap:12px;font-size:.82rem;color:var(--mute);margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:baseline}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tab{padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.9rem}
+.tab[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent);background:var(--panel)}
+.cal{display:grid;grid-template-columns:78px repeat(24,minmax(0,1fr));gap:2px;align-items:center}
+.cal .d{font-size:.78rem;color:var(--mute)}.cal .hh{font-size:.68rem;color:var(--mute);text-align:center}
+.cell{height:26px;border:0;border-radius:3px;padding:0;background:transparent}
+.cell.e{pointer-events:none;background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line) 3px 4px);opacity:.35}
+.b-great{background:var(--great)}.b-good{background:var(--good)}.b-marginal{background:var(--marginal)}
+.b-avoid{background:repeating-linear-gradient(135deg,var(--avoid) 0 4px,color-mix(in srgb,var(--avoid) 55%,var(--panel)) 4px 7px)}
+.cell.best{outline:2px solid var(--ink);outline-offset:-2px}.cell.sel{box-shadow:0 0 0 3px var(--accent);position:relative}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.82rem;color:var(--mute);margin:8px 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.detail{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px 12px;margin:8px 0}
+.stats div{font-size:.88rem}.stats b{display:block;font-size:1rem}
+.bars{display:grid;grid-template-columns:90px 1fr;gap:4px 8px;align-items:center;font-size:.85rem}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:var(--avoid)}
+.veto{display:inline-block;background:var(--avoid);color:#fff;border-radius:6px;padding:0 8px;font-size:.82rem;margin:2px 4px 2px 0}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+ul{margin:4px 0;padding-left:20px}li{margin:3px 0}.ev{color:var(--mute);font-size:.8rem}
+.warn{border-left:4px solid var(--marginal);padding:6px 12px;background:var(--bg);margin:8px 0;border-radius:0 8px 8px 0}
+details summary{cursor:pointer;font-weight:700}
+.windctl{background:var(--panel);color:var(--ink);padding:6px 10px;border-radius:8px;border:1px solid var(--line);font-size:.8rem;text-align:center}
+.windctl svg{display:block;margin:0 auto 2px}
+footer{color:var(--mute);font-size:.85rem}
+</style>
+</head>
+<body>
+<header class="top">
+ <h1>Where and when should I go outside?</h1>
+ <p class="lead">Live weather, air quality and OpenStreetMap surroundings, scored for every place and every hour, and explained by a small language model.</p>
+</header>
+<main>
+ <section class="card" aria-labelledby="askh">
+  <h3 id="askh">What do you want to do?</h3>
+  <p class="hint">Tap an activity to start from an example, then change the place and time.</p>
+  <div class="acts" id="acts" role="group" aria-label="Activities"></div>
+  <label for="q">Ask in your own words</label>
+  <textarea id="q" placeholder="e.g. I have mild asthma, where is good for a morning walk near Powai in the next two days?"></textarea>
+  <div class="row">
+   <button class="btn go" id="ask">Find the best place and time</button>
+   <button class="btn" id="geo" type="button">Use my location</button>
+   <span class="hint" id="geoState" style="margin:0"></span>
+  </div>
+  <div class="row" id="status" aria-live="polite"></div>
+ </section>
+
+ <div id="res" hidden>
+  <section class="card verdict" aria-label="Recommendation">
+   <div class="ring" id="ring" role="img"><div><div><b id="rnum"></b><br><span id="rband"></span></div></div></div>
+   <div>
+    <div class="chips" id="chips"></div>
+    <h2 id="vplace"></h2>
+    <div id="vwhen" class="hint" style="margin:0"></div>
+    <p class="ans" id="vans"></p>
+    <div class="row"><button class="btn" id="copy" type="button">Copy answer</button><span class="hint" id="copied" style="margin:0"></span></div>
+   </div>
+  </section>
+
+  <div class="grid" style="margin-top:16px">
+   <section class="card" aria-label="Map">
+    <div id="map" role="img" aria-label="Map showing the recommended places, wind direction and nearby upwind sources"></div>
+    <div class="maplegend" id="maplegend"></div>
+   </section>
+   <section class="card" aria-label="Hour by hour">
+    <div class="tabs" id="tabs" role="group" aria-label="Compare places"></div>
+    <h3>Hour by hour at this place</h3>
+    <div class="cal" id="cal"></div>
+    <div class="legend"><span><i class="b-great"></i>great 75+</span><span><i class="b-good"></i>good 55+</span><span><i class="b-marginal"></i>marginal 35+</span><span><i class="b-avoid"></i>avoid</span><span><i style="outline:2px solid var(--ink);outline-offset:-2px"></i>best window</span></div>
+    <div class="detail" id="detail" aria-live="polite"></div>
+   </section>
+  </div>
+
+  <section class="card cols" id="adv" style="margin-top:16px" aria-label="Advice"></section>
+  <section class="card" id="notes" style="margin-top:16px" aria-label="Assumptions and evidence"></section>
+ </div>
+ <footer id="attr">© OpenStreetMap contributors · weather and air quality from Open-Meteo · routing by OSRM</footer>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const ICON={running:'🏃',cycling:'🚴',golf:'⛳',cricket:'🏏',football:'⚽',tennis:'🎾',badminton:'🏸',basketball:'🏀',swimming:'🏊',yoga:'🧘',hiking:'🥾',birdwatching:'🐦',camping:'⛺',stargazing:'🔭',picnic:'🧺',event:'🎉',photography:'📷',walking:'🚶'};
+const COLV={great:'--great',good:'--good',marginal:'--marginal',avoid:'--avoid'};
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const col=b=>css(COLV[b]||'--accent');
+const RISK={heat:'Heat',cold:'Cold',rain:'Rain',wind:'Gusts',aqi:'Air quality',uv:'UV',light:'Light',cloud:'Cloud',moon:'Moonlight'};
+const DAY=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let data=null,opt=0,selT=null,loc=null,map=null,layer=null,wind=null,timer=null;
+
+function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
+function fmtT(iso){return iso.slice(11,16)}
+function fmtD(iso){const d=new Date(iso.slice(0,10)+'T12:00:00');return `${DAY[d.getDay()]} ${+iso.slice(8,10)} ${MON[+iso.slice(5,7)-1]}`}
+function ref(t){return t&&t.length?el('span','ev',' ['+t.join(', ')+']'):document.createTextNode('')}
+
+/* ---------- activity picker ---------- */
+fetch('/activities').then(r=>r.json()).then(list=>{
+  const box=$('#acts');
+  list.forEach(a=>{const b=el('button','act');b.type='button';b.setAttribute('aria-pressed','false');
+    b.append(el('span','ic',ICON[a.key]||'•'),el('span','',a.label.replace(/ \(.*\)/,'')));
+    b.onclick=()=>{box.querySelectorAll('.act').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');$('#q').value=a.example;$('#q').focus()};
+    box.append(b)});
+}).catch(()=>{$('#acts').append(el('p','hint','Activity list unavailable; just type your question.'))});
+
+/* ---------- location ---------- */
+$('#geo').onclick=()=>{
+  if(loc){loc=null;$('#geoState').textContent='';$('#geo').textContent='Use my location';return}
+  if(!navigator.geolocation){$('#geoState').textContent='Location is not available in this browser.';return}
+  $('#geoState').textContent='Asking your browser…';
+  navigator.geolocation.getCurrentPosition(p=>{loc={lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4)};
+    $('#geoState').textContent=`Using your location (${loc.lat}, ${loc.lon}) when the question names no place.`;$('#geo').textContent='Stop using my location'},
+    ()=>{$('#geoState').textContent='Location permission was denied. Type a place name instead.'},{timeout:10000});
+};
+
+/* ---------- ask ---------- */
+const STAGES=['Finding places on OpenStreetMap…','Fetching hourly weather and air quality…','Checking wind against nearby roads and industry…','Scoring every place for every hour…','Writing the explanation with the small model (this can take a while)…'];
+$('#ask').onclick=ask;
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))ask()});
+async function ask(){
+  const q=$('#q').value.trim();if(q.length<4){$('#status').replaceChildren(el('div','warn','Type a question first, for example: where can I run tomorrow evening near Powai?'));return}
+  const st=$('#status'),btn=$('#ask');btn.disabled=true;let i=0;
+  const tick=()=>{const p=el('div','progress');p.append(el('span','spin'),el('span','',STAGES[Math.min(i++,STAGES.length-1)]));st.replaceChildren(p)};
+  tick();timer=setInterval(tick,5000);
+  try{
+    const body={question:q};if(loc){body.lat=loc.lat;body.lon=loc.lon}
+    const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    data=await r.json();history.replaceState(null,'','#'+encodeURIComponent(q));
+    st.replaceChildren();render(data);
+  }catch(e){st.replaceChildren(el('div','warn','Could not reach the service. Check your connection and try again. ('+e+')'))}
+  finally{clearInterval(timer);btn.disabled=false}
+}
+
+/* ---------- render ---------- */
+function render(d){
+  const res=$('#res');
+  if(d.status!=='ok'){res.hidden=true;const w=el('div','warn',d.message||('Something went wrong ('+d.status+').'));
+    if(d.options){const u=el('div','chips');d.options.forEach(o=>u.append(el('span','chip',o)));w.append(u)}$('#status').replaceChildren(w);return}
+  res.hidden=false;
+  const i=d.interpretation,r=d.recommendation,top=d.options[0];
+  const chips=$('#chips');chips.replaceChildren(el('span','chip',i.activity_label),el('span','chip','near '+i.location.name),el('span','chip',i.window.label));
+  i.profiles.forEach(p=>chips.append(el('span','chip','profile: '+p)));
+  if(i.mode==='gonogo')chips.append(el('span','chip','yes/no check for your location'));
+  $('#vplace').textContent=r.venue;
+  const sl=d.options[0].best_window;
+  $('#vwhen').textContent=`${fmtD(sl.start)}, ${fmtT(sl.start)} to ${fmtT(sl.end)}`+(sl.travel_min?` · about ${sl.travel_min} min away by road`:'');
+  $('#vans').textContent=d.answer;
+  const ring=$('#ring');ring.style.setProperty('--p',r.score);ring.style.setProperty('--c',col(r.band));ring.setAttribute('aria-label',`Score ${r.score} out of 100, ${r.band}`);
+  $('#rnum').textContent=r.score;$('#rband').textContent=r.band;
+  const extra=$('#vans').parentNode;extra.querySelectorAll('.warn').forEach(x=>x.remove());
+  if(r.focus_verdict){const w=el('div','warn',`At the time you asked about, conditions are ${r.focus_verdict.band} (${r.focus_verdict.score}/100)`+(r.focus_verdict.vetoes.length?`: ${r.focus_verdict.vetoes.join(', ')}.`:'.'));extra.insertBefore(w,$('#vans').nextSibling)}
+  if(r.later_alternative){const a=r.later_alternative;extra.insertBefore(el('div','warn',`Nothing in your window is clearly good. A better slot is ${fmtD(a.start)} ${fmtT(a.start)} at ${a.venue} (${a.score}/100).`),$('#vans').nextSibling)}
+  opt=0;selT=sl.start;tabs();calendar();detail();drawMap();advice(d);notes(d);
+  res.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'});
+}
+
+function tabs(){const t=$('#tabs');t.replaceChildren();
+  data.options.forEach((o,k)=>{const b=el('button','tab',`${o.rank}. ${o.venue.name} (${o.best_window.score})`);b.type='button';b.setAttribute('aria-pressed',k===opt);
+    b.onclick=()=>{opt=k;selT=o.best_window.start;tabs();calendar();detail();drawMap()};t.append(b)})}
+
+function calendar(){
+  const o=data.options[opt],cal=$('#cal');cal.replaceChildren();
+  cal.append(el('span'));for(let h=0;h<24;h++)cal.append(el('span','hh',h%3===0?String(h):''));
+  const byDay={};o.hourly.forEach(h=>{(byDay[h.time.slice(0,10)] ||= {})[+h.time.slice(11,13)]=h});
+  const bw=o.best_window;
+  Object.keys(byDay).sort().forEach(day=>{
+    cal.append(el('span','d',fmtD(day+'T12:00')));
+    for(let h=0;h<24;h++){const x=byDay[day][h];
+      if(!x){cal.append(el('span','cell e'));continue}
+      const b=el('button','cell b-'+x.band);b.type='button';
+      b.title=`${fmtT(x.time)} · ${x.band} ${Math.round(x.score)}/100`;
+      b.setAttribute('aria-label',`${fmtD(x.time)} ${fmtT(x.time)}, ${x.band}, ${Math.round(x.score)} out of 100`);
+      if(x.time>=bw.start&&x.time<bw.end)b.classList.add('best');
+      if(x.time===selT)b.classList.add('sel');
+      b.onclick=()=>{selT=x.time;calendar();detail();drawMap()};cal.append(b)}
+  });
+}
+
+function detail(){
+  const o=data.options[opt],h=o.hourly.find(x=>x.time===selT)||o.hourly[0],box=$('#detail');box.replaceChildren();
+  if(!h)return;
+  const hd=el('h3','',`${fmtD(h.time)} ${fmtT(h.time)} at ${o.venue.name}: ${h.band}, ${Math.round(h.score)}/100`);box.append(hd);
+  h.vetoes.forEach(v=>box.append(el('span','veto',v)));
+  const s=el('div','stats');
+  const add=(k,v)=>{if(v===null||v===undefined||v==='')return;const d=el('div');d.append(el('b','',String(v)),document.createTextNode(k));s.append(d)};
+  add('feels like',h.feels_c!=null?h.feels_c+' °C':null);add('rain chance',h.rain_chance!=null?h.rain_chance+'%':null);
+  add('wind',h.wind_kmh!=null?`${Math.round(h.wind_kmh)} km/h from ${compass(h.wind_from)}`:null);add('gusts',h.gust_kmh!=null?Math.round(h.gust_kmh)+' km/h':null);
+  add('UV',h.uv);add('air quality (model)',h.aqi_model);add('air quality near the venue',h.aqi_effective);
+  add('local exposure',h.exposure+' (0 clean, 1 heavy)');add('light',h.light);if(h.moon!=null)add('moon lit',h.moon+'%');
+  box.append(s);
+  const risks=Object.entries(h.risks).filter(([k,v])=>v>=.05&&RISK[k]).sort((a,b)=>b[1]-a[1]);
+  if(risks.length){const bars=el('div','bars');risks.forEach(([k,v])=>{const b=el('div','bar');const f=el('i');f.style.width=Math.round(v*100)+'%';b.append(f);bars.append(el('span','',RISK[k]),b)});
+    box.append(el('div','hint','What pulls this hour down'),bars)}
+  if(h.sources.length){const u=el('ul');h.sources.forEach(c=>u.append(el('li','',`${c.label}, ${c.dist_m} m to the ${c.dir} (${c.relation})`)));box.append(el('div','hint','Nearby sources that matter this hour'),u)}
+}
+function compass(d){const c=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];return d==null?'?':c[Math.round(((d%360)/22.5))%16]}
+
+/* ---------- map ---------- */
+function drawMap(){
+  if(typeof L==='undefined'){$('#map').textContent='Map library could not load.';return}
+  if(!map){map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}).addTo(map);layer=L.layerGroup().addTo(map)}
+  layer.clearLayers();const pts=[],ctr=data.interpretation.location;
+  L.circleMarker([ctr.lat,ctr.lon],{radius:6,color:'#fff',weight:2,fillColor:'#555',fillOpacity:1}).bindTooltip('Your area').addTo(layer);pts.push([ctr.lat,ctr.lon]);
+  data.options.forEach((p,k)=>{const v=p.venue;
+    const m=L.circleMarker([v.lat,v.lon],{radius:k===opt?12:8,color:'#fff',weight:2,fillColor:col(p.best_window.band),fillOpacity:.95}).addTo(layer);
+    m.bindTooltip(`${p.rank}. ${v.name}, best ${p.best_window.score}/100`);m.on('click',()=>{opt=k;selT=p.best_window.start;tabs();calendar();detail();drawMap()});pts.push([v.lat,v.lon])});
+  const o=data.options[opt],h=o.hourly.find(x=>x.time===selT);
+  if(h){
+    h.sources.forEach(c=>{if(c.lat==null)return;const colr=c.relation==='upwind'?css('--avoid'):c.relation==='crosswind'?css('--marginal'):'#7a8a93';
+      L.circleMarker([c.lat,c.lon],{radius:7,color:'#fff',weight:2,fillColor:colr,fillOpacity:.95}).bindTooltip(`${c.label}, ${c.dist_m} m ${c.dir}, ${c.relation}`).addTo(layer);
+      L.polyline([[o.venue.lat,o.venue.lon],[c.lat,c.lon]],{color:colr,weight:2,dashArray:'5 6'}).addTo(layer);pts.push([c.lat,c.lon])});
+    if(wind){map.removeControl(wind)}
+    wind=L.control({position:'topright'});
+    wind.onAdd=()=>{const d=L.DomUtil.create('div','windctl');const to=((h.wind_from||0)+180)%360;
+      d.innerHTML='';const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('width','34');svg.setAttribute('height','34');svg.setAttribute('viewBox','0 0 24 24');
+      const pth=document.createElementNS(ns,'path');pth.setAttribute('d','M12 2 L19 21 L12 16.5 L5 21 Z');pth.setAttribute('fill',css('--accent'));svg.append(pth);svg.style.transform=`rotate(${to}deg)`;d.append(svg);
+      d.append(document.createTextNode(h.wind_kmh!=null?`Wind ${fmtT(h.time)}: from ${compass(h.wind_from)}, ${Math.round(h.wind_kmh)} km/h`:'Wind unknown'));return d};
+    wind.addTo(map);
+  }
+  const ml=$('#maplegend');ml.replaceChildren();
+  [['great','--great'],['good','--good'],['marginal','--marginal'],['avoid','--avoid']].forEach(([n,v])=>{const s=el('span');const d=el('i','dot');d.style.background=css(v);s.append(d,document.createTextNode(n));ml.append(s)});
+  const t=el('span');t.textContent='Dashed lines: red = upwind source, amber = crosswind, grey = downwind. The arrow shows where the wind is blowing to.';ml.append(t);
+  map.fitBounds(pts,{padding:[30,30],maxZoom:14});
+}
+
+/* ---------- advice and notes ---------- */
+function advice(d){
+  const a=d.advice,box=$('#adv');box.replaceChildren();
+  const col1=(title,items,fn)=>{const c=el('div');c.append(el('h3','',title));if(!items.length){c.append(el('p','hint','Nothing special for these conditions.'))}else{const u=el('ul');items.forEach(x=>{const li=el('li');fn(li,x);u.append(li)});c.append(u)}return c};
+  box.append(col1('What to carry',a.carry,(li,x)=>{li.append(document.createTextNode(x.text),ref(x.evidence))}),
+             col1('What to watch for',a.watch,(li,x)=>{li.append(document.createTextNode(x.text),ref(x.evidence))}),
+             col1('When to avoid it',a.avoid,(li,x)=>{li.append(el('b','',x.label),document.createTextNode(': '+x.reason))}));
+  if(a.profile_notes.length){const c=el('div');c.style.gridColumn='1/-1';c.append(el('h3','','For your profile'));const u=el('ul');a.profile_notes.forEach(n=>u.append(el('li','',n)));c.append(u);box.append(c)}
+}
+function notes(d){
+  const n=$('#notes');n.replaceChildren();
+  if(d.interpretation.assumptions.length){n.append(el('h3','','Assumptions I made'));const u=el('ul');d.interpretation.assumptions.forEach(x=>u.append(el('li','',x)));n.append(u)}
+  if(d.data_gaps.length){const w=el('div','warn');w.append(el('b','','Data gaps: '),document.createTextNode(d.data_gaps.join(' ')));n.append(w)}
+  const det=el('details');det.append(el('summary','','Evidence behind every claim'));const u=el('ul');
+  d.evidence.forEach(e=>{const li=el('li');li.append(el('b','','['+e.id+'] '),document.createTextNode(e.text+' '),el('span','ev','('+e.source+')'));u.append(li)});det.append(u);n.append(det);
+  const m=d.meta;n.append(el('p','hint',`Explanation written by ${m.narrative_source==='slm'?'the small language model ('+m.model+')':'a verified template (the model output failed the grounding check or was unavailable)'}; answered in ${m.elapsed_s}s.`));
+  if(m.verification_issues.length)n.append(el('p','hint','Grounding check notes: '+m.verification_issues.join('; ')));
+  $('#attr').textContent=d.attribution+' · weather and air quality from Open-Meteo · routing by OSRM · moon phase computed';
+}
+
+$('#copy').onclick=async()=>{try{await navigator.clipboard.writeText(data.markdown);$('#copied').textContent='Copied.'}catch(e){$('#copied').textContent='Copy failed; select the text instead.'}setTimeout(()=>$('#copied').textContent='',2500)};
+const h0=decodeURIComponent(location.hash.slice(1));if(h0){$('#q').value=h0;ask()}
+</script>
+</body>
+</html>
